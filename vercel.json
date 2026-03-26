@@ -1,5 +1,9 @@
-# Vercel Build Configuration
-# This helps Vercel optimize builds for this project
-
-# Frontend files to build
-vercel.json
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
