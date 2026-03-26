@@ -1,0 +1,5 @@
+# Vercel Build Configuration
+# This helps Vercel optimize builds for this project
+
+# Frontend files to build
+vercel.json

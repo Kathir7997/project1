@@ -1,8 +1,13 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
+// API base URL - uses environment variable or falls back to localhost for development
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+console.log('[API] Base URL configured:', API_BASE_URL);
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+    baseURL: API_BASE_URL,
 });
 
 // Request interceptor - Add Clerk token to headers
