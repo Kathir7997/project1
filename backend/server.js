@@ -28,7 +28,7 @@ const corsOptions = {
     // In development: use FRONTEND_URL (localhost:5173)
     origin: (origin, callback) => {
         const allowedOrigins = [
-            process.env.FRONTEND_URL || 'http://localhost:5173',
+            process.env.FRONTEND_URL || 'https://agricart7997.vercel.app',
             process.env.FRONTEND_URL_PRODUCTION,
             // Also allow Vercel deployment URLs
             process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
