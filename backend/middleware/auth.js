@@ -3,12 +3,11 @@ import User from '../models/User.js';
 import { normalizeClerkRole, upsertClerkUser } from '../utils/clerkUserSync.js';
 
 // Sync indexes on middleware load - removes orphaned indices and ensures correct ones exist
-try {
-    User.syncIndexes();
-    console.log('[AUTH] Starting index synchronization...');
-} catch (err) {
+User.syncIndexes().catch((err) => {
     console.error('[AUTH] Error during index sync:', err.message);
-}
+});
+
+const allowLegacyAuth = process.env.ALLOW_LEGACY_AUTH === 'true' && process.env.NODE_ENV !== 'production';
 
 // Verify Clerk token and attach user to request
 export const authenticateUser = async (req, res, next) => {
@@ -49,8 +48,8 @@ export const authenticateUser = async (req, res, next) => {
             }
         }
 
-        // 2. Fallback: Check for custom headers from localStorage (Development/Testing)
-        const customUserId = req.headers['x-user-id'];
+        // 2. Fallback: Check for custom headers from localStorage (development only)
+        const customUserId = allowLegacyAuth ? req.headers['x-user-id'] : null;
         if (customUserId) {
             console.log(`[AUTH] Attempting custom auth with x-user-id: ${customUserId}`);
             
@@ -75,7 +74,7 @@ export const authenticateUser = async (req, res, next) => {
         }
 
         // If neither method works
-        console.error('[AUTH] ❌ Authentication failed - no valid token or headers provided');
+        console.error('[AUTH] ❌ Authentication failed - no valid token provided');
         return res.status(401).json({ message: 'No authentication token provided' });
 
     } catch (error) {

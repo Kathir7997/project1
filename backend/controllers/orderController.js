@@ -1,13 +1,31 @@
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import Cart from '../models/Cart.js';
-import { successResponse, errorResponse } from '../utils/helpers.js';
+import { successResponse, errorResponse, getUserId } from '../utils/helpers.js';
+
+const isSameUser = (left, right) => String(left) === String(right);
+
+const applyCompletedOrderStockAdjustments = async (order) => {
+    for (const item of order.products) {
+        const product = await Product.findById(item.productId);
+        if (product) {
+            product.stock -= item.quantity;
+            if (product.stock < 0) product.stock = 0;
+            product.totalSold = (product.totalSold || 0) + item.quantity;
+            await product.save();
+        }
+    }
+};
 
 // @desc    Create new order
 // @route   POST /api/orders
 // @access  Private (Consumer only)
 export const createOrder = async (req, res) => {
     try {
+        if (!req.user) {
+            return errorResponse(res, 401, 'User not authenticated');
+        }
+
         const {
             products,
             totalAmount,
@@ -40,10 +58,10 @@ export const createOrder = async (req, res) => {
         }
 
         // Resolve the authenticated consumer and capture a snapshot for the order record.
-        const userId = req.user?.clerkId || req.user?.id || req.body.consumerId;
+        const userId = getUserId(req.user);
         const consumerSnapshot = req.user
             ? {
-                userId: req.user.clerkId || req.user._id?.toString() || userId,
+            userId,
                 name: req.user.name || req.body.consumerName,
                 email: req.user.email || req.body.consumerEmail,
                 role: req.user.role,
@@ -97,14 +115,19 @@ export const createOrder = async (req, res) => {
 // @access  Private (Consumer only)
 export const getConsumerOrders = async (req, res) => {
     try {
-        const consumerIds = [
-            req.user?.clerkId,
-            req.user?._id?.toString(),
-            req.params.consumerId,
-        ].filter(Boolean);
+        if (!req.user) {
+            return errorResponse(res, 401, 'User not authenticated');
+        }
 
-        const orders = await Order.find({ consumerId: { $in: consumerIds } })
+        const currentUserId = getUserId(req.user);
+
+        if (req.params.consumerId && !isSameUser(currentUserId, req.params.consumerId) && req.user.role !== 'Admin') {
+            return errorResponse(res, 403, 'Not authorized to view these orders');
+        }
+
+        const orders = await Order.find({ consumerId: currentUserId })
             .populate('products.productId')
+            .lean()
             .sort('-createdAt');
 
         successResponse(res, 200, orders, 'Consumer orders fetched successfully');
@@ -118,12 +141,17 @@ export const getConsumerOrders = async (req, res) => {
 // @access  Private (Farmer only)
 export const getFarmerOrders = async (req, res) => {
     try {
+        if (!req.user) {
+            return errorResponse(res, 401, 'User not authenticated');
+        }
+
         const farmerId = req.params.farmerId;
-        const farmerIds = [
-            farmerId,
-            req.user?.clerkId,
-            req.user?._id?.toString(),
-        ].filter(Boolean);
+
+        if (farmerId && !isSameUser(getUserId(req.user), farmerId) && req.user.role !== 'Admin') {
+            return errorResponse(res, 403, 'Not authorized to view these orders');
+        }
+
+        const farmerIds = [farmerId, getUserId(req.user)].filter(Boolean);
 
         // Find all orders that contain products from this farmer.
         // Accept both Clerk IDs and legacy Mongo user IDs so older records still render.
@@ -131,7 +159,8 @@ export const getFarmerOrders = async (req, res) => {
             'products.farmerId': { $in: farmerIds },
         })
             .populate('products.productId')
-            .sort('-createdAt');
+            .sort('-createdAt')
+            .lean();
 
         // Filter products in each order to show only this farmer's products
         const filteredOrders = orders.map((order) => {
@@ -159,10 +188,7 @@ export const updateOrderStatus = async (req, res) => {
     try {
         const { paymentStatus, razorpayPaymentId, razorpaySignature, orderStatus, productId } = req.body;
         const orderId = req.params.id;
-        const farmerIds = [
-            req.user?.clerkId,
-            req.user?._id?.toString(),
-        ].filter(Boolean);
+        const farmerIds = [getUserId(req.user)].filter(Boolean);
 
         const order = await Order.findById(orderId);
 
@@ -172,20 +198,18 @@ export const updateOrderStatus = async (req, res) => {
 
         // Handle Payment Status Update (Global for order)
         if (paymentStatus) {
+            if (!req.user || !isSameUser(order.consumerId, getUserId(req.user))) {
+                return errorResponse(res, 403, 'Not authorized to update payment status for this order');
+            }
+
+            const wasCompleted = order.paymentStatus === 'completed';
             order.paymentStatus = paymentStatus;
             if (razorpayPaymentId) order.razorpayPaymentId = razorpayPaymentId;
             if (razorpaySignature) order.razorpaySignature = razorpaySignature;
 
             // If payment is completed, reduce stock and update totalSold
-            if (paymentStatus === 'completed') {
-                for (const item of order.products) {
-                    const product = await Product.findById(item.productId);
-                    if (product) {
-                        product.stock -= item.quantity;
-                        product.totalSold += item.quantity;
-                        await product.save();
-                    }
-                }
+            if (paymentStatus === 'completed' && !wasCompleted) {
+                await applyCompletedOrderStockAdjustments(order);
             }
         }
 
@@ -194,10 +218,10 @@ export const updateOrderStatus = async (req, res) => {
         if (orderStatus && productId) {
             // Verify if the user (Farmer) owns this product in the order
             const itemIndex = order.products.findIndex(
-                p => p.productId.toString() === productId && farmerIds.includes(p.farmerId?.toString())
+                (p) => p.productId.toString() === productId && farmerIds.includes(p.farmerId?.toString())
             );
 
-            if (itemIndex === -1 && req.user.role !== 'admin') { // Admin override optional
+            if (itemIndex === -1 && req.user?.role !== 'Admin') {
                 return errorResponse(res, 403, 'You can only update status for your own products');
             }
 
@@ -246,8 +270,8 @@ export const updatePaymentMethod = async (req, res) => {
         }
 
         // Only consumer who placed the order can update payment method
-        const userId = req.user.clerkId || req.user._id;
-        if (order.consumerId !== userId) {
+        const userId = getUserId(req.user);
+        if (!isSameUser(order.consumerId, userId)) {
             return errorResponse(res, 403, 'Not authorized to update this order');
         }
 
@@ -290,22 +314,7 @@ export const updatePaymentMethod = async (req, res) => {
             order.paymentStatus = 'completed';
 
             // Reduce stock and update totalSold for completed orders
-            for (const item of order.products) {
-                try {
-                    const product = await Product.findById(item.productId);
-                    if (product) {
-                        const previousStock = product.stock;
-                        product.stock -= item.quantity;
-                        if (product.stock < 0) product.stock = 0;
-                        product.totalSold = (product.totalSold || 0) + item.quantity;
-                        await product.save();
-                        
-                        console.log(`[ORDERS] Updated product ${product._id}: stock ${previousStock} -> ${product.stock}, sold: ${product.totalSold}`);
-                    }
-                } catch (productError) {
-                    console.error(`[ORDERS] Error updating product stock:`, productError.message);
-                }
-            }
+            await applyCompletedOrderStockAdjustments(order);
         } else if (paymentMethod !== 'cod') {
             // For online payments without markAsCompleted, set status to processing
             order.paymentStatus = 'processing';

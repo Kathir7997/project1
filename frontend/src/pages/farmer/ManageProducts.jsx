@@ -87,7 +87,7 @@ const ManageProducts = () => {
 
     return (
         <FarmerLayout>
-            <header className="flex justify-between items-center mb-8">
+            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-800">Products</h1>
                     <p className="text-gray-500 mt-1">Manage your inventory and catalog</p>
@@ -96,7 +96,7 @@ const ManageProducts = () => {
                 {!showForm && (
                     <button
                         onClick={() => setShowForm(true)}
-                        className="btn-primary flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
+                        className="btn-primary flex items-center gap-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all w-full sm:w-auto justify-center"
                     >
                         <FaPlus />
                         Add New Product
@@ -128,8 +128,8 @@ const ManageProducts = () => {
                 </div>
             ) : (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                        <div className="relative w-64">
+                    <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4 bg-gray-50/50">
+                        <div className="relative w-full sm:w-64">
                             <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                             <input
                                 type="text"

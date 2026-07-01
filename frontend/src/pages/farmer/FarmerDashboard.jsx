@@ -48,12 +48,12 @@ const FarmerDashboard = () => {
     return (
         <FarmerLayout>
             {/* Header */}
-            <header className="flex justify-between items-center mb-8">
+            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
                     <p className="text-gray-500 mt-1">Welcome back, {user?.name} 👋</p>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 self-end sm:self-auto">
                     <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold">
                         {user?.name?.[0]}
                     </div>

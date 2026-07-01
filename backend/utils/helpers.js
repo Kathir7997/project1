@@ -28,3 +28,7 @@ export const validateFields = (fields, requiredFields) => {
 
     return missing.length > 0 ? missing : null;
 };
+
+export const getUserId = (user) => user?.clerkId || user?._id?.toString?.() || user?.id || null;
+
+export const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

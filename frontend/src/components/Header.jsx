@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FaShoppingCart, FaHeart, FaLeaf, FaSignOutAlt } from 'react-icons/fa';
+import { FaShoppingCart, FaHeart, FaLeaf, FaSignOutAlt, FaBars, FaTimes } from 'react-icons/fa';
 import { useCart } from '../context/CartContext';
 
 const Header = ({ role }) => {
     const { user, logout } = useAuth();
     const { getCartCount } = useCart();
     const navigate = useNavigate();
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const handleLogout = async () => {
         try {
@@ -70,21 +71,84 @@ const Header = ({ role }) => {
                         )}
                     </nav>
 
-                    {/* User Menu */}
+                    {/* User Menu & Mobile Toggle */}
                     <div className="flex items-center space-x-4">
                         <span className="text-sm text-gray-600 hidden md:inline">
                             {user?.name || 'User'} ({role})
                         </span>
                         <button
                             onClick={handleLogout}
-                            className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition"
+                            className="hidden md:flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-primary-600 hover:bg-gray-100 rounded-lg transition"
                             title="Logout"
                         >
                             <FaSignOutAlt />
-                            <span className="hidden md:inline">Logout</span>
+                            <span>Logout</span>
+                        </button>
+                        
+                        {/* Mobile Menu Toggle Button */}
+                        <button 
+                            className="md:hidden text-gray-700 text-2xl focus:outline-none"
+                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                        >
+                            {isMobileMenuOpen ? <FaTimes /> : <FaBars />}
                         </button>
                     </div>
                 </div>
+
+                {/* Mobile Menu */}
+                {isMobileMenuOpen && (
+                    <nav className="mt-4 flex flex-col space-y-4 md:hidden pb-4">
+                        {role === 'Farmer' ? (
+                            <>
+                                <Link to="/farmer/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-700 hover:text-primary-600 font-medium transition block">
+                                    Dashboard
+                                </Link>
+                                <Link to="/farmer/products" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-700 hover:text-primary-600 font-medium transition block">
+                                    Products
+                                </Link>
+                                <Link to="/farmer/orders" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-700 hover:text-primary-600 font-medium transition block">
+                                    Orders
+                                </Link>
+                            </>
+                        ) : (
+                            <>
+                                <Link to="/consumer/home" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-700 hover:text-primary-600 font-medium transition block">
+                                    Home
+                                </Link>
+                                <Link to="/consumer/products" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-700 hover:text-primary-600 font-medium transition block">
+                                    Products
+                                </Link>
+                                <Link to="/consumer/wishlist" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center space-x-2 text-gray-700 hover:text-primary-600 transition block">
+                                    <FaHeart className="text-xl" /> <span>Wishlist</span>
+                                </Link>
+                                <Link to="/consumer/cart" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center space-x-2 relative text-gray-700 hover:text-primary-600 transition block">
+                                    <FaShoppingCart className="text-xl" /> <span>Cart</span>
+                                    {getCartCount() > 0 && (
+                                        <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                                            {getCartCount()}
+                                        </span>
+                                    )}
+                                </Link>
+                                <Link to="/consumer/orders" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-700 hover:text-primary-600 font-medium transition block">
+                                    Orders
+                                </Link>
+                            </>
+                        )}
+                        <hr className="my-2 border-gray-200" />
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">
+                                {user?.name || 'User'} ({role})
+                            </span>
+                            <button
+                                onClick={handleLogout}
+                                className="flex items-center gap-2 text-gray-700 hover:text-primary-600 transition"
+                            >
+                                <FaSignOutAlt />
+                                <span>Logout</span>
+                            </button>
+                        </div>
+                    </nav>
+                )}
             </div>
         </header>
     );

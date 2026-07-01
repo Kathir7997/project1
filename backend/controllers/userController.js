@@ -2,26 +2,34 @@ import User from '../models/User.js';
 import { successResponse, errorResponse } from '../utils/helpers.js';
 import { clerkClient } from '@clerk/clerk-sdk-node';
 import { normalizeClerkRole, upsertClerkUser } from '../utils/clerkUserSync.js';
+import { getUserId } from '../utils/helpers.js';
 
 // @desc    Sync user from Clerk
 // @route   POST /api/users/sync
-// @access  Public
+// @access  Private
 export const syncUser = async (req, res) => {
     try {
-        const { clerkId, email, name, role } = req.body;
+        if (!req.user) {
+            return errorResponse(res, 401, 'User not authenticated');
+        }
+
+        const clerkId = req.user.clerkId || req.user.id || req.body.clerkId;
+        const email = req.user.email || req.body.email;
+        const name = req.user.name || req.body.name;
+        const role = req.user.role || req.body.role;
 
         if (!clerkId || !email || !name || !role) {
             return errorResponse(res, 400, 'Missing required fields');
         }
 
-        const user = await upsertClerkUser({ clerkId, email, name, role });
+        const user = await upsertClerkUser({ clerkId, email, name, role: normalizeClerkRole(role) });
 
         if (user) {
             // Update Clerk metadata so frontend can see the role in future sessions
             try {
                 await clerkClient.users.updateUserMetadata(clerkId, {
                     publicMetadata: {
-                        role: normalizeClerkRole(role)
+                        role: normalizeClerkRole(user.role)
                     }
                 });
                 console.log(`Updated Clerk metadata for user ${clerkId} with role ${role}`);
@@ -83,6 +91,14 @@ export const updateCurrentUserProfile = async (req, res) => {
 // @access  Private
 export const getUserProfile = async (req, res) => {
     try {
+        if (!req.user) {
+            return errorResponse(res, 401, 'User not authenticated');
+        }
+
+        if (getUserId(req.user) !== req.params.clerkId && req.user.role !== 'Admin') {
+            return errorResponse(res, 403, 'Not authorized to view this profile');
+        }
+
         const user = await User.findOne({ clerkId: req.params.clerkId });
 
         if (!user) {
@@ -100,6 +116,14 @@ export const getUserProfile = async (req, res) => {
 // @access  Private
 export const updateUserProfile = async (req, res) => {
     try {
+        if (!req.user) {
+            return errorResponse(res, 401, 'User not authenticated');
+        }
+
+        if (getUserId(req.user) !== req.params.clerkId && req.user.role !== 'Admin') {
+            return errorResponse(res, 403, 'Not authorized to update this profile');
+        }
+
         const user = await User.findOne({ clerkId: req.params.clerkId });
 
         if (!user) {

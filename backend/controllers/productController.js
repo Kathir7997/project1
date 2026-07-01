@@ -1,20 +1,26 @@
 import Product from '../models/Product.js';
-import { successResponse, errorResponse, validateFields } from '../utils/helpers.js';
+import { successResponse, errorResponse, validateFields, escapeRegex, getUserId } from '../utils/helpers.js';
+
+const isOwner = (productFarmerId, user) => String(productFarmerId) === String(getUserId(user));
 
 // @desc    Get all products with search and filter
 // @route   GET /api/products
 // @access  Public
 export const getProducts = async (req, res) => {
     try {
-        const { search, category, farmerId, sort = '-createdAt' } = req.query;
+        const { search, category, farmerId } = req.query;
+        const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 24, 1), 100);
+        const sortOptions = new Set(['-createdAt', 'createdAt', '-price', 'price', '-name', 'name', '-stock', 'stock']);
+        const sort = sortOptions.has(req.query.sort) ? req.query.sort : '-createdAt';
 
         let query = {};
 
         // Search by name or description
         if (search) {
             query.$or = [
-                { name: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } },
+                { name: { $regex: escapeRegex(search), $options: 'i' } },
+                { description: { $regex: escapeRegex(search), $options: 'i' } },
             ];
         }
 
@@ -28,7 +34,11 @@ export const getProducts = async (req, res) => {
             query.farmerId = farmerId;
         }
 
-        const products = await Product.find(query).sort(sort);
+        const products = await Product.find(query)
+            .sort(sort)
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .lean();
 
         successResponse(res, 200, products, 'Products fetched successfully');
     } catch (error) {
@@ -41,7 +51,7 @@ export const getProducts = async (req, res) => {
 // @access  Public
 export const getProductById = async (req, res) => {
     try {
-        const product = await Product.findById(req.params.id);
+        const product = await Product.findById(req.params.id).lean();
 
         if (!product) {
             return errorResponse(res, 404, 'Product not found');
@@ -58,7 +68,11 @@ export const getProductById = async (req, res) => {
 // @access  Private (Farmer only)
 export const createProduct = async (req, res) => {
     try {
-        const { name, description, price, category, stock, quantity, farmerId } = req.body;
+        if (!req.user) {
+            return errorResponse(res, 401, 'User not authenticated');
+        }
+
+        const { name, description, price, category, stock, quantity } = req.body;
 
         // Handle image uploads
         let imageUrls = [];
@@ -75,7 +89,11 @@ export const createProduct = async (req, res) => {
 
         // Use authenticated user's ID
         // Priority: 1. req.user.clerkId (from DB), 2. req.user.id (from Auth middleware), 3. req.body.farmerId (fallback)
-        const farmerIdToUse = req.user?.clerkId || req.user?.id || farmerId || 'unknown-farmer';
+        const farmerIdToUse = getUserId(req.user);
+
+        if (!farmerIdToUse) {
+            return errorResponse(res, 401, 'Authenticated farmer ID not found');
+        }
 
         const product = await Product.create({
             farmerId: farmerIdToUse,
@@ -105,11 +123,13 @@ export const updateProduct = async (req, res) => {
             return errorResponse(res, 404, 'Product not found');
         }
 
-        // TEMPORARY: Skip ownership check since we don't have req.user
-        // TODO: Implement proper authentication and ownership verification
-        // if (product.farmerId !== req.user.clerkId) {
-        //     return errorResponse(res, 403, 'You can only update your own products');
-        // }
+        if (!req.user) {
+            return errorResponse(res, 401, 'User not authenticated');
+        }
+
+        if (!isOwner(product.farmerId, req.user) && req.user.role !== 'Admin') {
+            return errorResponse(res, 403, 'You can only update your own products');
+        }
 
         const { name, description, price, category, stock, quantity } = req.body;
 
@@ -118,7 +138,7 @@ export const updateProduct = async (req, res) => {
         if (price !== undefined) product.price = price;
         if (category) product.category = category;
         if (stock !== undefined) product.stock = stock;
-        if (quantity) product.quantity = quantity;
+        if (quantity !== undefined) product.quantity = quantity;
 
         // Handle new images if uploaded
         if (req.files && req.files.length > 0) {
@@ -149,11 +169,13 @@ export const deleteProduct = async (req, res) => {
             return errorResponse(res, 404, 'Product not found');
         }
 
-        // TEMPORARY: Skip ownership check since we don't have req.user
-        // TODO: Implement proper authentication and ownership verification
-        // if (product.farmerId !== req.user.clerkId) {
-        //     return errorResponse(res, 403, 'You can only delete your own products');
-        // }
+        if (!req.user) {
+            return errorResponse(res, 401, 'User not authenticated');
+        }
+
+        if (!isOwner(product.farmerId, req.user) && req.user.role !== 'Admin') {
+            return errorResponse(res, 403, 'You can only delete your own products');
+        }
 
         await product.deleteOne();
 
@@ -168,7 +190,7 @@ export const deleteProduct = async (req, res) => {
 // @access  Public
 export const getFarmerProducts = async (req, res) => {
     try {
-        const products = await Product.find({ farmerId: req.params.farmerId });
+        const products = await Product.find({ farmerId: req.params.farmerId }).sort('-createdAt').lean();
 
         successResponse(res, 200, products, 'Farmer products fetched successfully');
     } catch (error) {

@@ -35,10 +35,10 @@ const LandingPage = () => {
                             Connecting farmers directly with consumers for fresh, organic produce
                         </p>
                         <div className="flex flex-col md:flex-row gap-4 justify-center">
-                            <Link to="/sign-in" className="bg-white text-primary-700 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition shadow-lg">
+                            <Link to="/sign-in" className="w-full md:w-auto bg-white text-primary-700 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition shadow-lg text-center">
                                 Login
                             </Link>
-                            <Link to="/sign-up" className="bg-earth-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-earth-700 transition shadow-lg">
+                            <Link to="/sign-up" className="w-full md:w-auto bg-earth-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-earth-700 transition shadow-lg text-center">
                                 Sign Up
                             </Link>
                         </div>

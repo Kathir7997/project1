@@ -38,9 +38,9 @@ const Cart = () => {
                     <div className="lg:col-span-2 space-y-4">
                         {cartItems.map((item) => (
                             <div key={item._id} className="card">
-                                <div className="flex gap-4">
+                                <div className="flex flex-col sm:flex-row gap-4">
                                     {/* Product Image */}
-                                    <div className="w-24 h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                                    <div className="w-full sm:w-24 h-40 sm:h-24 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                                         {item.images && item.images[0] ? (
                                             <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover" />
                                         ) : (
@@ -51,8 +51,8 @@ const Cart = () => {
                                     </div>
 
                                     {/* Product Info */}
-                                    <div className="flex-1">
-                                        <Link to={`/consumer/product/${item._id}`} className="text-lg font-semibold text-gray-800 hover:text-primary-600">
+                                    <div className="flex-1 text-center sm:text-left">
+                                        <Link to={`/consumer/product/${item._id}`} className="text-lg font-semibold text-gray-800 hover:text-primary-600 block">
                                             {item.name}
                                         </Link>
                                         <p className="text-sm text-gray-600 mb-2">{item.category}</p>
@@ -60,16 +60,9 @@ const Cart = () => {
                                     </div>
 
                                     {/* Quantity Controls */}
-                                    <div className="flex flex-col items-end justify-between">
-                                        <button
-                                            type="button"
-                                            onClick={() => removeFromCart(item._id)}
-                                            className="text-red-500 hover:text-red-600 hover:bg-red-50 p-2 rounded transition"
-                                            title="Remove from cart"
-                                        >
-                                            <FaTrash />
-                                        </button>
-
+                                    <div className="flex sm:flex-col items-center sm:items-end justify-between mt-4 sm:mt-0 w-full sm:w-auto">
+                                        <p className="font-semibold text-gray-700 sm:hidden">Total: ₹{item.price * item.quantity}</p>
+                                        
                                         <div className="flex items-center space-x-2">
                                             <button
                                                 type="button"
@@ -92,7 +85,16 @@ const Cart = () => {
                                             </button>
                                         </div>
 
-                                        <p className="font-semibold text-gray-700">₹{item.price * item.quantity}</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeFromCart(item._id)}
+                                            className="text-red-500 hover:text-red-600 hover:bg-red-50 p-2 rounded transition ml-4 sm:ml-0"
+                                            title="Remove from cart"
+                                        >
+                                            <FaTrash />
+                                        </button>
+                                        
+                                        <p className="font-semibold text-gray-700 hidden sm:block">₹{item.price * item.quantity}</p>
                                     </div>
                                 </div>
                             </div>
