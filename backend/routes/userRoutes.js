@@ -1,11 +1,21 @@
 import express from 'express';
-import { syncUser, getUserProfile, updateUserProfile } from '../controllers/userController.js';
+import {
+	syncUser,
+	getCurrentUserProfile,
+	updateCurrentUserProfile,
+	getUserProfile,
+	updateUserProfile,
+} from '../controllers/userController.js';
 import { authenticateUser } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Public route for Clerk webhook/sync
 router.post('/sync', syncUser);
+
+// Current authenticated user profile
+router.get('/profile', authenticateUser, getCurrentUserProfile);
+router.put('/profile', authenticateUser, updateCurrentUserProfile);
 
 // Protected routes
 router.get('/:clerkId', authenticateUser, getUserProfile);

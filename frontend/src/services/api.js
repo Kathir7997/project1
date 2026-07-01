@@ -1,9 +1,24 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { getClerkToken } from './tokenManager';
 
 // API base URL - uses environment variable or falls back to localhost for development
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Ensure proper formatting: should be http://localhost:5000/api (with /api suffix)
+const API_BASE_URL = (() => {
+    const envUrl = import.meta.env.VITE_API_URL;
+    if (envUrl) {
+        const normalizedUrl = envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl;
 
+        if (normalizedUrl.endsWith('/api') || normalizedUrl.includes('/api/')) {
+            return normalizedUrl;
+        }
+
+        return `${normalizedUrl}/api`;
+    }
+    return 'http://localhost:5000/api';
+})();
+
+console.log('[API] VITE_API_URL environment:', import.meta.env.VITE_API_URL);
 console.log('[API] Base URL configured:', API_BASE_URL);
 
 const api = axios.create({
@@ -14,12 +29,11 @@ const api = axios.create({
 api.interceptors.request.use(
     async (config) => {
         try {
-            // Get token from Clerk if available
-            if (window.Clerk && window.Clerk.session) {
-                const token = await window.Clerk.session.getToken();
-                if (token) {
-                    config.headers.Authorization = `Bearer ${token}`;
-                }
+            // Get token from TokenManager (which has access to Clerk's getToken)
+            const token = await getClerkToken();
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+                console.log('[API] Clerk token attached to request');
             } else {
                 // Fallback to localStorage for backward compatibility or during migration
                 const userStr = localStorage.getItem('farmcart_user');
@@ -27,6 +41,7 @@ api.interceptors.request.use(
                     const user = JSON.parse(userStr);
                     config.headers['x-user-id'] = user.id;
                     config.headers['x-user-role'] = user.role;
+                    console.log('[API] Using localStorage fallback auth');
                 }
             }
         } catch (error) {

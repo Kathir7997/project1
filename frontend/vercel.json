@@ -7,7 +7,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://agricart-2toc.onrender.com/api/:path*"
+      "destination": "https://project1-7npn.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",

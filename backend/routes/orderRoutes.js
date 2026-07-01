@@ -12,6 +12,7 @@ const router = express.Router();
 
 // Consumer routes
 router.post('/', authenticateUser, requireConsumer, createOrder);
+router.get('/me', authenticateUser, requireConsumer, getConsumerOrders);
 router.get('/consumer/:consumerId', authenticateUser, getConsumerOrders);
 router.put('/:id/payment-method', authenticateUser, requireConsumer, updatePaymentMethod);
 

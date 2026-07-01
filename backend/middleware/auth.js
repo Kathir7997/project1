@@ -1,5 +1,6 @@
 import { clerkClient } from '@clerk/clerk-sdk-node';
 import User from '../models/User.js';
+import { normalizeClerkRole, upsertClerkUser } from '../utils/clerkUserSync.js';
 
 // Sync indexes on middleware load - removes orphaned indices and ensures correct ones exist
 try {
@@ -31,78 +32,12 @@ export const authenticateUser = async (req, res, next) => {
                 const email = clerkUser.emailAddresses[0]?.emailAddress;
                 const name = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim();
 
-                // Check if user exists in MongoDB by clerkId
-                let user = await User.findOne({ clerkId: client.sub }).select('-createdAt -updatedAt');
-
-                // If user doesn't exist, create them
-                if (!user) {
-                    try {
-                        // Double-check to avoid race conditions
-                        const existingUser = await User.findOne({
-                            $or: [
-                                { clerkId: client.sub },
-                                { email: email }
-                            ]
-                        });
-
-                        if (existingUser) {
-                            console.log(`[AUTH] User already exists: ${existingUser.email}`);
-                            user = existingUser;
-                        } else {
-                            // Create new user
-                            user = await User.create({
-                                clerkId: client.sub,
-                                name: name || 'User',
-                                email: email || `user-${client.sub}@clerk.local`,
-                                role: (role && role.toLowerCase() === 'farmer') ? 'Farmer' : 'Consumer'
-                            });
-                            console.log(`[AUTH] ✓ Created new user in MongoDB: ${user.email} (${user.role})`);
-                        }
-                    } catch (dbError) {
-                        console.error('[AUTH] Error creating user:', {
-                            message: dbError.message,
-                            code: dbError.code,
-                            keyPattern: dbError.keyPattern
-                        });
-
-                        // Handle duplicate key error gracefully
-                        if (dbError.code === 11000) {
-                            // Duplicate key error - try to find existing user
-                            const duplicateKey = Object.keys(dbError.keyPattern || {})[0];
-                            console.log(`[AUTH] Duplicate key detected: ${duplicateKey}`);
-
-                            let existingUser = null;
-                            if (duplicateKey === 'clerkId') {
-                                existingUser = await User.findOne({ clerkId: client.sub });
-                            } else if (duplicateKey === 'email') {
-                                existingUser = await User.findOne({ email: email });
-                            }
-
-                            if (existingUser) {
-                                console.log(`[AUTH] ✓ Found existing user: ${existingUser.email}`);
-                                user = existingUser;
-                            } else {
-                                console.error('[AUTH] Could not resolve duplicate key error');
-                                return res.status(500).json({ 
-                                    message: 'User creation failed',
-                                    error: 'Database conflict'
-                                });
-                            }
-                        } else {
-                            console.error('[AUTH] Database error:', dbError.message);
-                            return res.status(500).json({ 
-                                message: 'Database error',
-                                error: dbError.message 
-                            });
-                        }
-                    }
-                }
-
-                // Ensure user has all required properties
-                if (!user.clerkId) {
-                    user.clerkId = client.sub;
-                    await user.save().catch(err => console.error('[AUTH] Error updating user:', err));
-                }
+                const user = await upsertClerkUser({
+                    clerkId: client.sub,
+                    email,
+                    name,
+                    role: normalizeClerkRole(role),
+                });
 
                 // Attach user info to request
                 req.user = user;

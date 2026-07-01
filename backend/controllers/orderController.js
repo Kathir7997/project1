@@ -39,11 +39,25 @@ export const createOrder = async (req, res) => {
             }
         }
 
-        // Get user ID from custom auth (stored in localStorage)
+        // Resolve the authenticated consumer and capture a snapshot for the order record.
         const userId = req.user?.clerkId || req.user?.id || req.body.consumerId;
+        const consumerSnapshot = req.user
+            ? {
+                userId: req.user.clerkId || req.user._id?.toString() || userId,
+                name: req.user.name || req.body.consumerName,
+                email: req.user.email || req.body.consumerEmail,
+                role: req.user.role,
+            }
+            : {
+                userId,
+                name: req.body.consumerName,
+                email: req.body.consumerEmail,
+                role: req.body.consumerRole,
+            };
 
         const order = await Order.create({
             consumerId: userId,
+            consumer: consumerSnapshot,
             products,
             totalAmount,
             deliveryCharge: deliveryCharge || 0,
@@ -83,7 +97,13 @@ export const createOrder = async (req, res) => {
 // @access  Private (Consumer only)
 export const getConsumerOrders = async (req, res) => {
     try {
-        const orders = await Order.find({ consumerId: req.params.consumerId })
+        const consumerIds = [
+            req.user?.clerkId,
+            req.user?._id?.toString(),
+            req.params.consumerId,
+        ].filter(Boolean);
+
+        const orders = await Order.find({ consumerId: { $in: consumerIds } })
             .populate('products.productId')
             .sort('-createdAt');
 
@@ -99,11 +119,16 @@ export const getConsumerOrders = async (req, res) => {
 export const getFarmerOrders = async (req, res) => {
     try {
         const farmerId = req.params.farmerId;
+        const farmerIds = [
+            farmerId,
+            req.user?.clerkId,
+            req.user?._id?.toString(),
+        ].filter(Boolean);
 
-        // Find all orders that contain products from this farmer
-        // Include all payment statuses (COD orders are 'pending', online are 'completed')
+        // Find all orders that contain products from this farmer.
+        // Accept both Clerk IDs and legacy Mongo user IDs so older records still render.
         const orders = await Order.find({
-            'products.farmerId': farmerId,
+            'products.farmerId': { $in: farmerIds },
         })
             .populate('products.productId')
             .sort('-createdAt');
@@ -111,7 +136,7 @@ export const getFarmerOrders = async (req, res) => {
         // Filter products in each order to show only this farmer's products
         const filteredOrders = orders.map((order) => {
             const farmerProducts = order.products.filter(
-                (p) => p.farmerId === farmerId
+                (p) => farmerIds.includes(p.farmerId?.toString())
             );
             return {
                 ...order.toObject(),
@@ -134,6 +159,10 @@ export const updateOrderStatus = async (req, res) => {
     try {
         const { paymentStatus, razorpayPaymentId, razorpaySignature, orderStatus, productId } = req.body;
         const orderId = req.params.id;
+        const farmerIds = [
+            req.user?.clerkId,
+            req.user?._id?.toString(),
+        ].filter(Boolean);
 
         const order = await Order.findById(orderId);
 
@@ -165,7 +194,7 @@ export const updateOrderStatus = async (req, res) => {
         if (orderStatus && productId) {
             // Verify if the user (Farmer) owns this product in the order
             const itemIndex = order.products.findIndex(
-                p => p.productId.toString() === productId && p.farmerId === req.user.clerkId
+                p => p.productId.toString() === productId && farmerIds.includes(p.farmerId?.toString())
             );
 
             if (itemIndex === -1 && req.user.role !== 'admin') { // Admin override optional

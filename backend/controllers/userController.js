@@ -1,6 +1,7 @@
 import User from '../models/User.js';
 import { successResponse, errorResponse } from '../utils/helpers.js';
 import { clerkClient } from '@clerk/clerk-sdk-node';
+import { normalizeClerkRole, upsertClerkUser } from '../utils/clerkUserSync.js';
 
 // @desc    Sync user from Clerk
 // @route   POST /api/users/sync
@@ -13,25 +14,14 @@ export const syncUser = async (req, res) => {
             return errorResponse(res, 400, 'Missing required fields');
         }
 
-        // Check if user already exists
-        let user = await User.findOne({ clerkId });
+        const user = await upsertClerkUser({ clerkId, email, name, role });
 
         if (user) {
-            // Update existing user
-            user.email = email;
-            user.name = name;
-            // Only update role if it's currently not set or explicitly requested (optional logic)
-            if (!user.role) user.role = role;
-            await user.save();
-        } else {
-            // Create new user
-            user = await User.create({ clerkId, email, name, role });
-
             // Update Clerk metadata so frontend can see the role in future sessions
             try {
                 await clerkClient.users.updateUserMetadata(clerkId, {
                     publicMetadata: {
-                        role: role
+                        role: normalizeClerkRole(role)
                     }
                 });
                 console.log(`Updated Clerk metadata for user ${clerkId} with role ${role}`);
@@ -44,6 +34,47 @@ export const syncUser = async (req, res) => {
         successResponse(res, 200, user, 'User synced successfully');
     } catch (error) {
         errorResponse(res, 500, 'Failed to sync user', error.message);
+    }
+};
+
+// @desc    Get current user profile
+// @route   GET /api/users/profile
+// @access  Private
+export const getCurrentUserProfile = async (req, res) => {
+    try {
+        const user = req.user;
+
+        if (!user) {
+            return errorResponse(res, 401, 'User not authenticated');
+        }
+
+        successResponse(res, 200, user, 'User profile fetched successfully');
+    } catch (error) {
+        errorResponse(res, 500, 'Failed to fetch user profile', error.message);
+    }
+};
+
+// @desc    Update current user profile
+// @route   PUT /api/users/profile
+// @access  Private
+export const updateCurrentUserProfile = async (req, res) => {
+    try {
+        const user = req.user;
+
+        if (!user) {
+            return errorResponse(res, 401, 'User not authenticated');
+        }
+
+        const { name } = req.body;
+
+        if (name) {
+            user.name = name;
+            await user.save();
+        }
+
+        successResponse(res, 200, user, 'User profile updated successfully');
+    } catch (error) {
+        errorResponse(res, 500, 'Failed to update user profile', error.message);
     }
 };
 

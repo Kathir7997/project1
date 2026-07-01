@@ -23,14 +23,8 @@ const OrderHistory = () => {
 
     const fetchOrders = async () => {
         try {
-            if (!user?.id) {
-                console.warn('[ORDERS] User ID not available');
-                setLoading(false);
-                return;
-            }
-
-            console.log('[ORDERS] Fetching orders for user:', user.id);
-            const response = await api.get(`/orders/consumer/${user.id}`);
+            console.log('[ORDERS] Fetching orders for current user');
+            const response = await api.get('/orders/me');
             console.log('[ORDERS] Response received:', response.data);
             
             if (response.data?.success) {
@@ -45,7 +39,8 @@ const OrderHistory = () => {
                 message: error.message,
                 status: error.status,
                 data: error.data,
-                userId: user?.id
+                userId: user?.id,
+                userRole: user?.role
             });
             
             const errorMsg = error.message || error.error || 'Failed to load orders';

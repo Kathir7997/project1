@@ -88,6 +88,9 @@ const Checkout = () => {
             // Create order data
             const orderData = {
                 consumerId: user.id || user.clerkId, // Ensure consumerId is passed explicitly
+                consumerName: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.name || '',
+                consumerEmail: user.email || '',
+                consumerRole: user.role || 'Consumer',
                 products: cartItems.map((item) => ({
                     productId: item._id,
                     farmerId: item.farmerId || 'unknown-farmer', // Fallback to avoid validation error
@@ -112,17 +115,17 @@ const Checkout = () => {
                     currency: 'INR',
                 });
 
-                if (!orderResponse.data?.data) {
+                 if (!orderResponse.data?.data?.razorpayOrderId) {
                      throw new Error('Invalid response from payment server');
-                }
+                 }
 
-                const { id: razorpayOrderId, amount } = orderResponse.data.data;
+                 const { razorpayOrderId, amount, currency } = orderResponse.data.data;
 
                 // Initialize Razorpay checkout
                 const options = {
                     key: import.meta.env.VITE_RAZORPAY_KEY_ID,
                     amount: amount,
-                    currency: 'INR',
+                    currency: currency || 'INR',
                     name: 'Agricart',
                     description: 'Farm Fresh Products',
                     order_id: razorpayOrderId,
@@ -137,8 +140,9 @@ const Checkout = () => {
 
                             if (verifyResponse.data.success) {
                                 // Create order with payment details
-                                orderData.razorpayOrderId = response.razorpay_order_id;
+                                orderData.razorpayOrderId = razorpayOrderId;
                                 orderData.razorpayPaymentId = response.razorpay_payment_id;
+                                orderData.razorpaySignature = response.razorpay_signature;
                                 orderData.paymentStatus = 'completed';
 
                                 await api.post('/orders', orderData);
