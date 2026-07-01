@@ -80,7 +80,10 @@ app.get('/api/test', (req, res) => {
 
 // Health check route
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', message: 'Agricart API is running' });
+    res.status(200).json({
+        status: 'OK',
+        timestamp: new Date(),
+    });
 });
 
 // Error handling
