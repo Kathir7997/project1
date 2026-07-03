@@ -77,8 +77,9 @@ export const createProduct = async (req, res) => {
         // Handle image uploads
         let imageUrls = [];
         if (req.files && req.files.length > 0) {
-            // With Cloudinary storage, req.files contains file objects with 'path' being the Cloudinary URL
-            imageUrls = req.files.map(file => file.path);
+            // multer-storage-cloudinary: file.path holds the secure Cloudinary URL
+            // fallback to file.secure_url or file.url for compatibility
+            imageUrls = req.files.map(file => file.path || file.secure_url || file.url);
         }
 
         // Validate required fields
@@ -142,11 +143,11 @@ export const updateProduct = async (req, res) => {
 
         // Handle new images if uploaded
         if (req.files && req.files.length > 0) {
-            // Using Cloudinary, file.path contains the secure URL
-            const newImages = req.files.map(file => file.path);
+            // multer-storage-cloudinary: file.path holds the secure Cloudinary URL
+            // fallback to file.secure_url or file.url for compatibility
+            const newImages = req.files.map(file => file.path || file.secure_url || file.url);
 
-            // Allow appending or replacing? For now, we'll append to existing images
-            // If user wants to delete, that needs a separate mechanism or UI logic
+            // Append to existing images
             product.images = [...product.images, ...newImages];
         }
 
@@ -154,6 +155,7 @@ export const updateProduct = async (req, res) => {
 
         successResponse(res, 200, product, 'Product updated successfully');
     } catch (error) {
+        console.error('[PRODUCT] updateProduct error:', error);
         errorResponse(res, 500, 'Failed to update product', error.message);
     }
 };

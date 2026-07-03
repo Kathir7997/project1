@@ -45,12 +45,14 @@ const corsOptions = {
 
 app.use(helmet());
 app.use(compression());
+// CORS must be before body parsers so preflight OPTIONS requests
+// (sent before multipart/file upload requests) get proper headers
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(mongoSanitize());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 
 app.use(
     rateLimit({
