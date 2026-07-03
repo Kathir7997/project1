@@ -6,7 +6,7 @@ const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
     params: {
         folder: 'agri-products', // Cloudinary folder name
-        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'avif'],
+        // allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'avif'], // Removed to allow all formats Cloudinary supports
         transformation: [{ width: 1000, height: 1000, crop: 'limit' }], // Optional: resize large images
     },
 });

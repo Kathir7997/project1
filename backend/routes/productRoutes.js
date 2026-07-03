@@ -25,7 +25,7 @@ router.post('/', authenticateUser, requireFarmer, (req, res, next) => {
             console.error('Upload Error:', err);
             return res.status(400).json({
                 success: false,
-                message: 'Image upload failed',
+                message: `Upload Error: ${err.message}`,
                 error: err.message
             });
         }
@@ -39,7 +39,7 @@ router.put('/:id', authenticateUser, requireFarmer, (req, res, next) => {
             console.error('Upload Error:', err);
             return res.status(400).json({
                 success: false,
-                message: 'Image upload failed',
+                message: `Upload Error: ${err.message}`,
                 error: err.message
             });
         }
