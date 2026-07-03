@@ -168,7 +168,7 @@ export const getFarmerOrders = async (req, res) => {
                 (p) => farmerIds.includes(p.farmerId?.toString())
             );
             return {
-                ...order.toObject(),
+                ...order,
                 products: farmerProducts,
             };
         });

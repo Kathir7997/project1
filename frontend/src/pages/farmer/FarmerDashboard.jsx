@@ -7,6 +7,7 @@ import SalesChart from '../../components/farmer/SalesChart';
 import OrderList from '../../components/farmer/OrderList';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 const FarmerDashboard = () => {
     const { user } = useAuth();
@@ -28,6 +29,8 @@ const FarmerDashboard = () => {
             setOrders(ordersRes.data.data || []);
         } catch (error) {
             console.error('Error fetching dashboard data:', error);
+            const errorMsg = error?.message || error?.error || 'Failed to load dashboard data';
+            toast.error(errorMsg);
         } finally {
             setLoading(false);
         }
