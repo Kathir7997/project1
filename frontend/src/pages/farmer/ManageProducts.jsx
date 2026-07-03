@@ -54,7 +54,8 @@ const ManageProducts = () => {
             toast.success('Product updated successfully!');
         } catch (error) {
             console.error('Error updating product:', error);
-            toast.error('Failed to update product');
+            const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to update product';
+            toast.error(errorMessage);
         }
     };
 
